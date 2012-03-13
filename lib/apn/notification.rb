@@ -1,3 +1,5 @@
+require 'yajl'
+
 module APN
   # Encapsulates the logic necessary to convert an iPhone token and an array of options into a string of the format required
   # by Apple's servers to send the notification.  Much of the processing code here copied with many thanks from
@@ -27,8 +29,9 @@ module APN
     def initialize(token, opts)
       @options = hash_as_symbols(opts.is_a?(Hash) ? opts : {:alert => opts})
       @token = token
+      payload_size = packaged_message.bytesize.to_i
 
-      raise "The maximum size allowed for a notification payload is 256 bytes." if packaged_notification.size.to_i > 256
+      raise "Payload bytesize of #{payload_size} is > the maximum allowed size of 255." if payload_size > 255
     end
 
     def to_s
@@ -47,7 +50,7 @@ module APN
     def packaged_notification
       pt = packaged_token
       pm = packaged_message
-      [0, 0, 32, pt, 0, pm.size, pm].pack("ccca*cca*") 
+      [0, 0, 32, pt, 0, pm.bytesize, pm].pack("ccca*cca*") 
     end
 
     # Device token, compressed and hex-ified
@@ -67,7 +70,7 @@ module APN
         hsh['aps']['sound'] = sound.is_a?(TrueClass) ? 'default' : sound.to_s
       end
       hsh.merge!(opts)
-      ActiveSupport::JSON::encode(hsh)
+      Yajl::Encoder.encode(hsh)
     end
     
     # Symbolize keys, using ActiveSupport if available
@@ -81,6 +84,6 @@ module APN
        end
      end
    end
-   
  end   
 end
+

@@ -12,6 +12,7 @@ begin
     gem.email = "kali.donovan@gmail.com"
     gem.homepage = "http://github.com/kdonovan/apple_push_notification"
     gem.authors = ["Kali Donovan"]
+    gem.add_dependency 'yajl-ruby'
     gem.add_dependency 'resque'
     gem.add_dependency 'resque-access_worker_from_job'
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
