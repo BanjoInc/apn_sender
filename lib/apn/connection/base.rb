@@ -79,7 +79,7 @@ module APN
           File.join(@opts[:cert_path], @opts[:cert_name])
         end
         
-        log(:info, "Using cert #{cert_path}")
+        log(:info, "APN environment=#{apn_production? ? 'production' : 'development'}, using cert #{cert_path}")
         @apn_cert = File.read(cert_path) if File.exists?(cert_path)
         log_and_die("Please specify correct :full_cert_path. No apple push notification certificate found in: #{cert_path}") unless @apn_cert
       end
