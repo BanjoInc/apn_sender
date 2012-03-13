@@ -33,6 +33,8 @@ module APN
           ::Merb.logger
         elsif defined?(::Rails.logger)
           ::Rails.logger
+        else
+          Logger.new(STDOUT)
         end
       end
       
@@ -72,11 +74,12 @@ module APN
           # Note that RAILS_ROOT is still here not from Rails, but to handle passing in root from sender_daemon
           @opts[:root_path] ||= defined?(::Rails.root) ? ::Rails.root.to_s : (defined?(RAILS_ROOT) ? RAILS_ROOT : '/')
           @opts[:cert_path] ||= File.join(File.expand_path(@opts[:root_path]), "config", "certs")
-          @opts[:cert_name] ||= apn_production? ? "apn_production.pem" : "apn_development.pem"
+          @opts[:cert_name] ||= 'apn_' + ::Rails.env + '.pem'
 
           File.join(@opts[:cert_path], @opts[:cert_name])
         end
         
+        log(:info, "Using cert #{cert_path}")
         @apn_cert = File.read(cert_path) if File.exists?(cert_path)
         log_and_die("Please specify correct :full_cert_path. No apple push notification certificate found in: #{cert_path}") unless @apn_cert
       end
