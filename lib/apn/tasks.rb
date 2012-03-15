@@ -21,7 +21,7 @@ namespace :apn do
 
     puts "*** Starting worker to send apple notifications in the background from #{worker}"
 
-    worker.work(ENV['INTERVAL'] || 1.0) # interval, will block
+    worker.work(ENV['INTERVAL'] || 0.5) # interval, will block
   end
 
   desc "Start multiple APN workers. Should only be used in dev mode."
