@@ -73,7 +73,7 @@ module APN
     
     
     def apn_host
-      @apn_host ||= apn_production? ? "feedback.push.apple.com" : "feedback.sandbox.push.apple.com"
+      @apn_host ||= apn_sandbox? ? "feedback.sandbox.push.apple.com" : "feedback.push.apple.com"
     end
     
     def apn_port

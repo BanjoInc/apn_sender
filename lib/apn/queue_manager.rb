@@ -4,9 +4,11 @@
 
 module APN
   # Enqueues a notification to be sent in the background via the persistent TCP socket, assuming apn_sender is running (or will be soon)
-  def self.notify(token, opts = {})
+  def self.notify(token, opts = {}, sandbox = true)
     token = token.to_s.gsub(/\W/, '')
-    APN::QueueManager.enqueue(APN::NotificationJob, token, opts)
+    queue = 'apn_' + ::Rails.env
+    queue += '_sandbox' if sandbox
+    APN::QueueManager.enqueue(queue, APN::NotificationJob, token, opts)
   end  
   
   # Extends Resque, allowing us to add all the callbacks to Resque we desire without affecting the expected
@@ -24,6 +26,15 @@ module APN
 
     def self.to_s
       "APN::QueueManager (Resque Client) connected to #{redis.server}"
+    end
+
+    def self.enqueue(queue, klass, *args)
+      count = Resque::Job.create(queue, klass, *args)
+
+      Resque::Plugin.after_enqueue_hooks(klass).each do |hook|
+        klass.send(hook, *args)
+      end
+      count
     end
   end
   

@@ -1,17 +1,17 @@
 # Slight modifications from the default Resque tasks
 namespace :apn do
-  task :setup
-  task :work => :sender
-  task :workers => :senders
+  task setup: :environment
+  task work: :sender
+  task workers: :senders
 
   desc "Start an APN worker"
-  task :sender => :setup do
+  task sender: :setup do
     require 'apn'
 
     worker = nil
 
     begin
-      worker = APN::Sender.new(:full_cert_path => ENV['FULL_CERT_PATH'], :cert_path => ENV['CERT_PATH'], :environment => ENV['ENVIRONMENT'])
+      worker = APN::Sender.new(full_cert_path: ENV['FULL_CERT_PATH'], cert_path: ENV['CERT_PATH'], environment: ENV['ENVIRONMENT'], sandbox: ENV['SANDBOX'].present?)
       worker.verbose = ENV['LOGGING'] || ENV['VERBOSE']
       worker.very_verbose = ENV['VVERBOSE']
     rescue Exception => e

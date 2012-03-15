@@ -37,7 +37,7 @@ module APN
     protected
     
     def apn_host
-      @apn_host ||= apn_production? ? "gateway.push.apple.com" : "gateway.sandbox.push.apple.com"
+      @apn_host ||= apn_sandbox? ? "gateway.sandbox.push.apple.com" : "gateway.push.apple.com"
     end
     
     def apn_port

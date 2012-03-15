@@ -1,5 +1,3 @@
-require 'yajl'
-
 module APN
   # Encapsulates the logic necessary to convert an iPhone token and an array of options into a string of the format required
   # by Apple's servers to send the notification.  Much of the processing code here copied with many thanks from

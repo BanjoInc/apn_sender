@@ -13,10 +13,10 @@ module APN
         @opts = opts
 
         setup_logger
-        log(:info, "APN::Sender initializing. Establishing connections first...") if @opts[:verbose]
         setup_paths
+        log(:info, "APN::Sender with queue #{queue_name}, opts #{@opts}")
 
-        super( APN::QUEUE_NAME ) if self.class.ancestors.include?(Resque::Worker)
+        super(queue_name) if self.class.ancestors.include?(Resque::Worker)
       end
       
       # Lazy-connect the socket once we try to access it in some way
@@ -26,16 +26,14 @@ module APN
       end
             
       protected
+
+      def queue_name
+        @queue_name ||= 'apn_' + @opts[:environment] + (apn_sandbox? ? '_sandbox' : '')
+      end
       
-      # Default to Rails or Merg logger, if available
+      # Default to Rails logger, if available
       def setup_logger
-        @logger = if defined?(::Merb::Logger)
-          ::Merb.logger
-        elsif defined?(::Rails.logger)
-          ::Rails.logger
-        else
-          Logger.new(STDOUT)
-        end
+        @logger = defined?(::Rails.logger) ? ::Rails.logger : Logger.new(STDOUT)
       end
       
       # Log message to any logger provided by the user (e.g. the Rails logger).
@@ -51,7 +49,7 @@ module APN
 
         resque_log(message) if defined?(resque_log)
         return false unless self.logger && self.logger.respond_to?(level)
-        self.logger.send(level, "#{Time.now}: #{message}")
+        self.logger.send(level, "[#{apn_environment}] #{Time.now}: #{message}")
       end
       
       # Log the message first, to ensure it reports what went wrong if in daemon mode. 
@@ -61,8 +59,12 @@ module APN
         raise msg
       end
       
-      def apn_production?
-        @opts[:environment] && @opts[:environment] != '' && :production == @opts[:environment].to_sym
+      def apn_sandbox?
+        @apn_sandbox ||= @opts[:sandbox].present?
+      end
+      
+      def apn_environment
+        @apn_envoironment ||= apn_sandbox? ? 'sandbox' : 'production'
       end
       
       # Get a fix on the .pem certificate we'll be using for SSL
@@ -74,12 +76,12 @@ module APN
           # Note that RAILS_ROOT is still here not from Rails, but to handle passing in root from sender_daemon
           @opts[:root_path] ||= defined?(::Rails.root) ? ::Rails.root.to_s : (defined?(RAILS_ROOT) ? RAILS_ROOT : '/')
           @opts[:cert_path] ||= File.join(File.expand_path(@opts[:root_path]), "config", "certs")
-          @opts[:cert_name] ||= 'apn_' + ::Rails.env + '.pem'
+          @opts[:cert_name] ||= 'apn_' + ::Rails.env + (apn_sandbox? ? '_sandbox.pem' : '.pem')
 
           File.join(@opts[:cert_path], @opts[:cert_name])
         end
         
-        log(:info, "APN environment=#{apn_production? ? 'production' : 'development'}, using cert #{cert_path}")
+        log(:info, "APN environment=#{apn_environment}, Rails environment=#{::Rails.env}, using cert #{cert_path}")
         @apn_cert = File.read(cert_path) if File.exists?(cert_path)
         log_and_die("Please specify correct :full_cert_path. No apple push notification certificate found in: #{cert_path}") unless @apn_cert
       end
