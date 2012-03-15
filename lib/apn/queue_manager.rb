@@ -29,12 +29,7 @@ module APN
     end
 
     def self.enqueue(queue, klass, *args)
-      count = Resque::Job.create(queue, klass, *args)
-
-      Resque::Plugin.after_enqueue_hooks(klass).each do |hook|
-        klass.send(hook, *args)
-      end
-      count
+      Resque::Job.create(queue, klass, *args)
     end
   end
   

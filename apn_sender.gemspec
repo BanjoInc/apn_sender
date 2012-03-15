@@ -52,16 +52,16 @@ Gem::Specification.new do |s|
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
       s.add_runtime_dependency(%q<yajl-ruby>, [">= 0"])
-      s.add_runtime_dependency(%q<resque>, [">= 1.20.0", "~> 1.20"])
+      s.add_runtime_dependency(%q<resque>, [">= 0"])
       s.add_runtime_dependency(%q<resque-access_worker_from_job>, [">= 0"])
     else
       s.add_dependency(%q<yajl-ruby>, [">= 0"])
-      s.add_dependency(%q<resque>, [">= 1.20.0", "~> 1.20"])
+      s.add_dependency(%q<resque>, [">= 0"])
       s.add_dependency(%q<resque-access_worker_from_job>, [">= 0"])
     end
   else
     s.add_dependency(%q<yajl-ruby>, [">= 0"])
-    s.add_dependency(%q<resque>, [">= 1.20.0", "~> 1.20"])
+    s.add_dependency(%q<resque>, [">= 0"])
     s.add_dependency(%q<resque-access_worker_from_job>, [">= 0"])
   end
 end
