@@ -28,7 +28,7 @@ module APN
       protected
 
       def queue_name
-        @queue_name ||= 'apn_' + @opts[:environment] + (apn_sandbox? ? '_sandbox' : '')
+        @queue_name ||= 'apn_' + @opts[:environment].to_s + (apn_sandbox? ? '_sandbox' : '')
       end
       
       # Default to Rails logger, if available
@@ -89,8 +89,8 @@ module APN
       # Open socket to Apple's servers
       def setup_connection
         log_and_die("Missing apple push notification certificate") unless @apn_cert
-        return true if @socket && @socket_tcp
-        log_and_die("Trying to open half-open connection") if @socket || @socket_tcp
+        return true if @socket && @socket_tcp && !@socket.closed? && !@socket_tcp.closed?
+        log_and_die("Trying to open half-open connection") if (@socket && !@socket.closed?) || (@socket_tcp && !@socket_tcp.closed?)
 
         ctx = OpenSSL::SSL::SSLContext.new
         ctx.cert = OpenSSL::X509::Certificate.new(@apn_cert)
@@ -115,7 +115,7 @@ module APN
         end
 
         begin
-          @socket_tcp.close if @socket_tcp
+          @socket_tcp.close if @socket_tcp && !@socket_tcp.closed?
         rescue Exception => e
           log(:error, "Error closing TCP Socket: #{e}")
         end
