@@ -1,10 +1,8 @@
 require 'socket'
 require 'openssl'
-require 'resque'
 
 module APN
-  module Connection
-    # APN::Connection::Base takes care of all the boring certificate loading, socket creating, and logging
+    # APN::Base takes care of all the boring certificate loading, socket creating, and logging
     # responsibilities so APN::Sender and APN::Feedback and focus on their respective specialties.
     module Base
       attr_accessor :opts, :logger
@@ -15,8 +13,6 @@ module APN
         setup_logger
         setup_paths
         log(:info, "APN::Sender with queue #{queue_name}, opts #{@opts}")
-
-        super(queue_name) if self.class.ancestors.include?(Resque::Worker)
       end
       
       # Lazy-connect the socket once we try to access it in some way
@@ -43,11 +39,9 @@ module APN
       #
       # Perhaps a method definition of +message, +level+ would make more sense, but
       # that's also the complete opposite of what anyone comming from rails would expect.
-      alias_method(:resque_log, :log) if defined?(log)
       def log(level, message = nil)
         level, message = 'info', level if message.nil? # Handle only one argument if called from Resque, which expects only message
 
-        resque_log(message) if defined?(resque_log)
         return false unless self.logger && self.logger.respond_to?(level)
         self.logger.send(level, "[#{apn_environment}] #{Time.now}: #{message}")
       end
@@ -120,7 +114,5 @@ module APN
           log(:error, "Error closing TCP Socket: #{e}")
         end
       end
-      
     end
-  end
 end
