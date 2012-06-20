@@ -36,28 +36,26 @@ where,
   # :alert  #=> The alert to send
   # :badge  #=> The badge number to send
   # :sound  #=> The sound file to play on receipt, or true to play the default sound installed with your app
-  # :custom #=> Anything else that goes to the root of the aps hash
+  # :custom #=> Anything else that goes to the root of the message
 
-If any other keys are present they'll be be passed along as custom data to your application.
+If any other keys are present they'll be added to the root of the aps hash
 
 === 2. Sending as Queued Message using delayed processes, ie: SideKiq as the example here
 
-```ruby
-class ApnSideKiqWorker
-  sidekiq_options queue: :apn
+  class ApnSideKiqWorker
+    sidekiq_options queue: :apn
 
-  def perform(token, options, sandbox = false)
-    APN::Connection.send(token, options, sandbox)
+    def perform(token, options, sandbox = false)
+      APN::Connection.send(token, options, sandbox)
+    end
   end
-end
 
-options = { alert: 'Hello from APN', sound: 'default.wav', badge: 10, extra: { id: 1234 } }
-ApnSideKiqWorker.perform_async(device.token, options, device.build == 'development')
-```
+  options = { alert: 'Hello from APN', sound: 'default.wav', badge: 10, extra: { id: 1234 } }
+  ApnSideKiqWorker.perform_async(device.token, options, device.build == 'development')
 
 Once this is done, you can fire off the SideKiq background worker with
 
-  $ rake apn:sender
+  $ sidekiq -c 5 -q apn
   
 === 3. Checking Apple's Feedback Service
   
@@ -113,9 +111,9 @@ Just for the record, this is essentially what you want to have whenever run peri
 
 Add this to your Gemfile:
   
-```
-gem 'apn_sender', :require => 'apn'
-```
+  gem 'apn_sender', :require => 'apn'
+
+Then bunndle, 
 
   $ bundle install
 
