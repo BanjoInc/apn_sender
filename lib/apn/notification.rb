@@ -42,8 +42,31 @@ module APN
       false
     end
     
-    protected
+    # Converts the supplied options into the JSON needed for Apple's push notification servers.
+    # Extracts :alert, :badge, :sound, 'aps' hash, merges 'custom' hash data
+    # into the root of the hash to encode and send to apple.
+    def packaged_message
+      self.class.packaged_message(@options)
+    end
 
+    def self.packaged_message(options)
+      raise "Message #{options} is missing the alert or badge keys." unless options[:badge] || options[:alert]
+
+      opts = options.clone # Don't destroy our pristine copy
+      aps_hash = {}
+
+      if sound = opts.delete(:sound)
+        aps_hash['sound'] = sound.is_a?(TrueClass) ? 'default' : sound.to_s
+      end
+
+      hsh = { 'aps' => aps_hash }
+      hsh.merge!(opts.delete(:custom) || {})
+      hsh['aps'].merge!(opts)
+
+      Yajl::Encoder.encode(hsh)
+    end
+    
+    protected
     # Completed encoded notification, ready to send down the wire to Apple
     def packaged_notification
       pt = packaged_token
@@ -56,21 +79,6 @@ module APN
       [@token.gsub(/[\s|<|>]/,'')].pack('H*')
     end
 
-    # Converts the supplied options into the JSON needed for Apple's push notification servers.
-    # Extracts :alert, :badge, and :sound keys into the 'aps' hash, merges any other hash data
-    # into the root of the hash to encode and send to apple.
-    def packaged_message
-      opts = @options.clone # Don't destroy our pristine copy
-      hsh = {'aps' => {}}
-      hsh['aps']['alert'] = opts.delete(:alert).to_s if opts[:alert]
-      hsh['aps']['badge'] = opts.delete(:badge).to_i if opts[:badge]
-      if sound = opts.delete(:sound)
-        hsh['aps']['sound'] = sound.is_a?(TrueClass) ? 'default' : sound.to_s
-      end
-      hsh.merge!(opts)
-      Yajl::Encoder.encode(hsh)
-    end
-    
     # Symbolize keys, using ActiveSupport if available
     def hash_as_symbols(hash)
       if hash.respond_to?(:symbolize_keys)

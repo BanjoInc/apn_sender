@@ -1,61 +1,64 @@
 == Synopsis
 
-Need to send background notifications to an iPhone application over a <em>persistent</em> connection in Ruby? Keep reading...
+Based on Kali Donovan's APN sender 1.x.
+
+In 2.0 we keep things lean - we removed the resque layer, and make APN connection pluggable to multithreaded background worker (like SideKiq) to send Apple Push Notifications over a persistent TCP socket.
 
 == The Story
 
 So you're building the server component of an iPhone application in Ruby.  And you want to send background notifications through the Apple Push Notification servers, which doesn't seem too bad at first.  But then you read in the {Apple Documentation}[https://developer.apple.com/iphone/library/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/WhatAreRemoteNotif/WhatAreRemoteNotif.html#//apple_ref/doc/uid/TP40008194-CH102-SW7] that Apple's servers may treat non-persistent connections as a Denial of Service attack, and you realize that Rails has no easy way to maintain a persistent connection internally, and things start looking more complicated.
 
-The apn_sender gem includes a background daemon which processes background messages from your application and sends them along to Apple <em>over a single, persistent socket</em>.  It also includes the ability to query the Feedback service, helper methods for enqueueing your jobs, and a sample monit config to make sure the background worker is around when you need it.
+The apn_sender 2.0 gem is pluggable to run on delayed job workers, and processes background messages from your application and sends them along to Apple <em>over a single, persistent socket</em>.
+
+Same as 1.x, it also includes the ability to query the Feedback service, helper methods for enqueueing your jobs.
 
 == Yet another ApplePushNotification interface?
 
 Yup.  There's some great code out there already, but we didn't like the idea of getting banned from the APN gateway for establishing a new connection each time we needed to send a batch of messages, and none of the libraries I found handled maintaining a persistent connection.
 
-== Current Status
-
-This gem has been in production use since early May, 2010.  There are no guarantees of complete functionality, of course, but it's working for us. :)
-** UPDATE: our site is now defunct (for completely-unrelated reasons), but the many forks and watchers make me think something's going right. **
-
 == Usage
 
-=== 1. Queueing Messages From Your Application
+=== 0. Setting up the pem certs
 
-To queue a message for sending through Apple's Push Notification service from your Rails application:
+Put your <code>apn_production.pem</code> and <code>apn_production_sandbox.pem</code> certificates from Apple in your <code>RAILS_ROOT/config/certs</code> directory.
 
-  APN.notify(token, opts_hash)
-  
-where +token+ is the unique identifier of the iPhone to receive the notification and +opts_hash+ can have any of the following keys:
+=== 1. Sending Messages From Your Application
+
+To send a message through Apple's Push Notification service from your Rails application:
+
+  APN::Connection.send(token, options, sandbox)
+
+where,
+  +token+ is the unique identifier of the iPhone to receive the notification 
+  +sandbox+ is a boolean to indicate if you are using the APN sandbox push server
+  +options+ can have any of the following keys:
 
   # :alert  #=> The alert to send
   # :badge  #=> The badge number to send
   # :sound  #=> The sound file to play on receipt, or true to play the default sound installed with your app
+  # :custom #=> Anything else that goes to the root of the aps hash
 
 If any other keys are present they'll be be passed along as custom data to your application.
 
-=== 2. Sending Queued Messages
+=== 2. Sending as Queued Message using delayed processes, ie: SideKiq as the example here
 
-Put your <code>apn_development.pem</code> and <code>apn_production.pem</code> certificates from Apple in your <code>RAILS_ROOT/config/certs</code> directory.
+```ruby
+class ApnSideKiqWorker
+  sidekiq_options queue: :apn
 
-Once this is done, you can fire off a background worker with
+  def perform(token, options, sandbox = false)
+    APN::Connection.send(token, options, sandbox)
+  end
+end
+
+options = { alert: 'Hello from APN', sound: 'default.wav', badge: 10, extra: { id: 1234 } }
+ApnSideKiqWorker.perform_async(device.token, options, device.build == 'development')
+```
+
+Once this is done, you can fire off the SideKiq background worker with
 
   $ rake apn:sender
   
-For production, you're probably better off running a dedicated daemon and setting up monit to watch over it for you.  Luckily, that's pretty easy:
-
-  # To generate daemon
-  ./script/generate apn_sender
-
-  # To run daemon. Pass --help to print all options
-  ./script/apn_sender --environment=production --verbose start
-
-Note the --environment must be explicitly set (separately from your <code>Rails.env</code>) to production in order to send messages via the production APN servers.  Any other environment sends messages through Apple's sandbox servers at <code>gateway.sandbox.push.apple.com</code>.
-
-Also, there are two similar options: <code>:cert_path</code> and <code>:full_cert_path</code>.  The former specifies the directory in which to find the .pem file (either apn_production.pem or apn_development.pem, depending on the environment). The latter specifies a .pem file explicitly, allowing customized certificate names if needed.
-
-Check <code>logs/apn_sender.log</code> for debugging output.  In addition to logging any major errors there, apn_sender hooks into the Resque::Worker logging to display any verbose or very_verbose worker output in apn_sender.log file as well.
-
-
 === 3. Checking Apple's Feedback Service
   
 Since push notifications are a fire-and-forget sorta deal, where you get no indication if your message was received (or if the specified recipient even exists), Apple needed to come up with some other way to ensure their network isn't clogged with thousands of bogus messages (e.g. from developers sending messages to phones where their application <em>used</em> to be installed, but where the user has since removed it).  Hence, the Feedback Service.
@@ -106,32 +109,18 @@ Just for the record, this is essentially what you want to have whenever run peri
   end
 
 
-
-
-=== Keeping Your Workers Working
-
-There's also an included sample <code>apn_sender.monitrc</code> file in the <code>contrib/</code> folder to help monit handle server restarts and unexpected disasters.
-
-
 == Installation
 
-APN is built on top of {Resque}[http://github.com/defunkt/resque] (an awesome {Redis}[http://code.google.com/p/redis/]-based background runner similar to {delayed_job}[http://github.com/collectiveidea/delayed_job]). Read through the {Resque README}[http://github.com/defunkt/resque#readme] to get a feel for what's going on, follow the installation instructions there, and then run:
-
-  $ gem install apn_sender
-
-In your Rails app, add (2.3.x):
-
-  config.gem 'apn_sender', :lib => 'apn'
+Add this to your Gemfile:
   
-or (3.x) to your Gemfile:
-  
-  gem 'apn_sender', :require => 'apn'
-  
-To add a few useful rake tasks for running workers, add the following line to your Rakefile:
+```
+gem 'apn_sender', :require => 'apn'
+```
 
-  require 'apn/tasks'
+  $ bundle install
 
 
 == Copyright
 
 Copyright (c) 2010 Kali Donovan. See LICENSE for details.
+
