@@ -12,7 +12,7 @@ module APN
 
         setup_logger
         setup_paths
-        log(:info, "APN::Sender with queue #{queue_name}, opts #{@opts}")
+        log(:info, "APN::Sender with opts #{@opts}")
       end
       
       # Lazy-connect the socket once we try to access it in some way
@@ -22,11 +22,6 @@ module APN
       end
             
       protected
-
-      def queue_name
-        @queue_name ||= 'apn_' + @opts[:environment].to_s + (apn_sandbox? ? '_sandbox' : '')
-      end
-      
       # Default to Rails logger, if available
       def setup_logger
         @logger = defined?(::Rails.logger) ? ::Rails.logger : Logger.new(STDOUT)
@@ -53,12 +48,20 @@ module APN
         raise msg
       end
       
+      def apn_enterprise?
+        @apn_enterprise ||= @opts[:enterprise].present?
+      end      
+
       def apn_sandbox?
         @apn_sandbox ||= @opts[:sandbox].present?
       end
       
+      def apn_enterprise?
+        @apn_enterprise ||= @opts[:enterprise].present?
+      end
+      
       def apn_environment
-        @apn_envoironment ||= apn_sandbox? ? 'sandbox' : 'production'
+        @apn_envoironment ||= (apn_sandbox? ? 'sandbox' : 'production') + (apn_enterprise? ? '_enterprise' : '')
       end
       
       # Get a fix on the .pem certificate we'll be using for SSL
@@ -70,7 +73,7 @@ module APN
           # Note that RAILS_ROOT is still here not from Rails, but to handle passing in root from sender_daemon
           @opts[:root_path] ||= defined?(::Rails.root) ? ::Rails.root.to_s : (defined?(RAILS_ROOT) ? RAILS_ROOT : '/')
           @opts[:cert_path] ||= File.join(File.expand_path(@opts[:root_path]), "config", "certs")
-          @opts[:cert_name] ||= 'apn_' + ::Rails.env + (apn_sandbox? ? '_sandbox.pem' : '.pem')
+          @opts[:cert_name] ||= 'apn_' + ::Rails.env + (apn_sandbox? ? '_sandbox' : '') + (apn_enterprise? ? '_enterprise' : '') + '.pem'
 
           File.join(@opts[:cert_path], @opts[:cert_name])
         end

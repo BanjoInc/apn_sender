@@ -25,19 +25,28 @@ class APN::Connection
     end
   end
 
-  def self.send(token, options, sandbox = false)
+  def self.send(token, options, sandbox = false, enterprise = false)
     msg = APN::Notification.new(token, options)
     raise "Invalid notification options (did you provide :alert, :badge, or :sound?): #{options.inspect}" unless msg.valid?
 
     thread_id = Thread.current.object_id
 
-    sender = if sandbox
-      @sandbox_senders[thread_id] ||= new(worker_count: 1, sandbox: 1, verbose: 1)
+    # Use only 1 single thread for internal enterprise cert
+    sender = if enterprise
+      if sandbox
+        @sandbox_enterprise_sender ||= new(worker_count: 1, sandbox: 1, verbose: 1, enterprise: 1)
+      else
+        @production_enterprise_sender ||= new(worker_count: 1, verbose: 1, enterprise: 1)
+      end 
     else
-      @production_senders[thread_id] ||= new(worker_count: 1, verbose: 1)
+      if sandbox
+        @sandbox_senders[thread_id] ||= new(worker_count: 1, sandbox: 1, verbose: 1)
+      else
+        @production_senders[thread_id] ||= new(worker_count: 1, verbose: 1)
+      end
     end
      
-    Rails.logger.info "[APNConnection:#{sender.object_id} #{sandbox ? 'sandbox' : 'production'}] token: #{token} message: #{options}"
+    Rails.logger.info "[APNConnection:#{sender.object_id} #{sandbox ? 'sandbox' : 'production'}#{enterprise ? ' enterprise' : ''}] token: #{token} message: #{options}"
     sender.send_to_apple(msg)
   end
 
