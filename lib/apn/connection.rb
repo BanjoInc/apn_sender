@@ -4,6 +4,7 @@ class APN::Connection
 
   @production_senders = Hash.new
   @sandbox_senders = Hash.new
+  @enterprise_semaphore = Mutex.new
 
   def send_to_apple(notification)
     retries = 0
@@ -47,7 +48,11 @@ class APN::Connection
     end
      
     Rails.logger.info "[APNConnection:#{sender.object_id} #{sandbox ? 'sandbox' : 'production'}#{enterprise ? ' enterprise' : ''}] token: #{token} message: #{options}"
-    sender.send_to_apple(msg)
+    if enterprise
+      @enterprise_semaphore.synchronize { sender.send_to_apple(msg) }
+    else
+      sender.send_to_apple(msg)
+    end
   end
 
   protected
