@@ -5,28 +5,18 @@
 
 Gem::Specification.new do |s|
   s.name = %q{banjo-apn_sender}
-  s.version = "2.0.0"
+  s.version = "2.0.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = [%q{Kali Donovan}, %q{KW Justin Leung}]
   s.date = %q{2012-06-19}
   s.description = %q{Based on Kali Donovan's APN sender 1.x. 2.0 keep things lean - we removed the resque layer, and make APN connection pluggable to multithreaded background worker (like SideKiq) to send Apple Push Notifications over a persistent TCP socket.}
   s.email = %q{kali.donovan@gmail.com justin@teambanjo.com}
-  s.extra_rdoc_files = [
-    "LICENSE",
-    "README.rdoc"
-  ]
-  s.files = [
-    "LICENSE",
-    "README.rdoc",
-    "Rakefile",
-    "VERSION",
-    "apn_sender.gemspec",
-    "lib/apn.rb",
-    "lib/apn/base.rb",
-    "lib/apn/feedback.rb",
-    "lib/apn/notification.rb"
-  ]
+  s.extra_rdoc_files = [ "LICENSE", "README.rdoc" ]
+  s.files = `git ls-files`.split("\n")
+  s.test_files = `git ls-files -- {test,spec,features}/*`.split("\n")
+  s.executables = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
+  s.require_paths = ["lib"]
   s.homepage = %q{http://github.com/BanjoInc/apn_sender}
   s.require_paths = [%q{lib}]
   s.rubygems_version = %q{1.8.6}
