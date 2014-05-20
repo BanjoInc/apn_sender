@@ -5,10 +5,13 @@ module APN
     # APN::Base takes care of all the boring certificate loading, socket creating, and logging
     # responsibilities so APN::Sender and APN::Feedback and focus on their respective specialties.
     module Base
-      attr_accessor :opts, :logger
+      attr_accessor :opts, :logger, :fifos
+      
+      FIFO_SIZE = 5
       
       def initialize(opts = {})
         @opts = opts
+        @fifos = Hash.new { [] }
 
         setup_logger
         setup_paths
@@ -21,12 +24,6 @@ module APN
         return @socket
       end
             
-      protected
-      # Default to Rails logger, if available
-      def setup_logger
-        @logger = defined?(::Rails.logger) ? ::Rails.logger : Logger.new(STDOUT)
-      end
-      
       # Log message to any logger provided by the user (e.g. the Rails logger).
       # Accepts +log_level+, +message+, since that seems to make the most sense,
       # and just +message+, to be compatible with Resque's log method and to enable
@@ -38,7 +35,7 @@ module APN
         level, message = 'info', level if message.nil? # Handle only one argument if called from Resque, which expects only message
 
         return false unless self.logger && self.logger.respond_to?(level)
-        self.logger.send(level, "[#{apn_environment}] #{Time.now}: #{message}")
+        self.logger.send(level, "[APNConnection:#{object_id} #{apn_environment}] #{message}")
       end
       
       # Log the message first, to ensure it reports what went wrong if in daemon mode. 
@@ -46,6 +43,12 @@ module APN
       def log_and_die(msg)
         log(:fatal, msg)
         raise msg
+      end
+      
+      protected
+      # Default to Rails logger, if available
+      def setup_logger
+        @logger = defined?(::Rails.logger) ? ::Rails.logger : Logger.new(STDOUT)
       end
       
       def apn_enterprise?
@@ -89,6 +92,7 @@ module APN
         return true if @socket && @socket_tcp && !@socket.closed? && !@socket_tcp.closed?
         log_and_die("Trying to open half-open connection") if (@socket && !@socket.closed?) || (@socket_tcp && !@socket_tcp.closed?)
 
+        log(:info, "Setting up SSL connection to APN...")
         ctx = OpenSSL::SSL::SSLContext.new
         ctx.cert = OpenSSL::X509::Certificate.new(@apn_cert)
         ctx.key = OpenSSL::PKey::RSA.new(@apn_cert)

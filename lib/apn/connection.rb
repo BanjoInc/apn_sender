@@ -6,22 +6,30 @@ class APN::Connection
   @sandbox_senders = Hash.new
   @enterprise_semaphore = Mutex.new
 
-  def send_to_apple(notification)
+
+  def push_fifo(env, token)
+    @fifos[env] <<= token
+    @fifos[env].shift if @fifos[env][FIFO_SIZE]
+  end
+
+  def send_to_apple(notification, token, env, tag)
     retries = 0
+    push_fifo(env, token)
 
     begin
       self.socket.write( notification.to_s )
     rescue => e
-      Rails.logger.error("Try #{retries}: APNConnection to #{apn_host} error with #{e}")
+      log(:error, "Try #{retries}: #{e.class} to #{apn_host}: #{e.message}, recent_tokens: #{@fifos[env]}")
 
       # Try reestablishing the connection
       if (retries += 1) <= TIMES_TO_RETRY_SOCKET_ERROR
         teardown_connection
+        sleep 1
         setup_connection
         retry
       end
 
-      Rails.logger.error("APNConnection gave up send_to_apple after #{retries} failures")
+      log(:error, "#{e.class} to #{apn_host}: #{e.message}, recent_tokens: #{@fifos[env]}")
       raise e
     end
   end
@@ -47,11 +55,14 @@ class APN::Connection
       end
     end
      
-    Rails.logger.info "[APNConnection:#{sender.object_id} #{sandbox ? 'sandbox' : 'production'}#{enterprise ? ' enterprise' : ''}] token: #{token} message: #{options}"
+    env = sandbox ? 'sandbox' : enterprise ? 'enterprise' : 'production'
+    tag = "#{sandbox ? 'sandbox' : 'production'}#{enterprise ? ' enterprise' : ''}"
+    sender.log(:info, "token: #{token} message: #{options}")
+
     if enterprise
-      @enterprise_semaphore.synchronize { sender.send_to_apple(msg) }
+      @enterprise_semaphore.synchronize { sender.send_to_apple(msg, token, env, tag) }
     else
-      sender.send_to_apple(msg)
+      sender.send_to_apple(msg, token, env, tag)
     end
   end
 
