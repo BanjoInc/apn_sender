@@ -13,7 +13,7 @@ begin
     gem.email = "kali.donovan@gmail.com justin@teambanjo.com"
     gem.homepage = "http://github.com/BanjoInc/apn_sender"
     gem.authors = ["Kali Donovan", "KW Justin Leung"]
-    gem.add_dependency 'yajl-ruby'
+    gem.add_dependency 'multi_json'
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
   Jeweler::GemcutterTasks.new

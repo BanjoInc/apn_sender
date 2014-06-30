@@ -1,5 +1,4 @@
-require 'yajl'
-require 'json'
+require 'multi_json'
 require 'active_support'
 require 'apn/notification'
 require 'apn/base'
