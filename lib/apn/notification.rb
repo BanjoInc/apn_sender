@@ -21,8 +21,8 @@ module APN
     # Available to help clients determine before they create the notification if their message will be too large.
     # Each iPhone Notification payload must be 256 or fewer characters.  Encoding a null message has a 57 
     # character overhead, so there are 199 characters available for the alert string.
-    MAX_ALERT_LENGTH = 199 
-    
+    MAX_ALERT_LENGTH = 199
+
     attr_accessor :options, :token
     def initialize(token, opts)
       @options = hash_as_symbols(opts.is_a?(Hash) ? opts : {:alert => opts})
@@ -35,13 +35,13 @@ module APN
     def to_s
       packaged_notification
     end
-    
+
     # Ensures at least one of <code>%w(alert badge sound)</code> is present
     def valid?
-      return true if %w(alert badge sound).any?{|key| options.keys.include?(key.to_sym) }
+      return true if %w(alert badge sound content-available).any?{|key| options.keys.include?(key.to_sym) }
       false
     end
-    
+
     # Converts the supplied options into the JSON needed for Apple's push notification servers.
     # Extracts :alert, :badge, :sound, 'aps' hash, merges 'custom' hash data
     # into the root of the hash to encode and send to apple.
@@ -50,7 +50,7 @@ module APN
     end
 
     def self.packaged_message(options)
-      raise "Message #{options} is missing the alert or badge keys." unless options[:badge] || options[:alert]
+      raise "Message #{options} is missing the alert, badge, content-available keys." unless options[:badge] || options[:alert] || options[:'content-available']
 
       opts = options.clone # Don't destroy our pristine copy
       aps_hash = {}
@@ -63,9 +63,9 @@ module APN
       hsh.merge!(opts.delete(:custom) || {})
       hsh['aps'].merge!(opts)
 
-      Yajl::Encoder.encode(hsh)
+      MultiJson.dump(hsh)
     end
-    
+
     protected
     # Completed encoded notification, ready to send down the wire to Apple
     def packaged_notification
@@ -84,12 +84,12 @@ module APN
       if hash.respond_to?(:symbolize_keys)
         return hash.symbolize_keys
       else
-       hash.inject({}) do |opt, (key, value)|
-         opt[(key.to_sym rescue key) || key] = value
-         opt
-       end
-     end
-   end
- end   
+        hash.inject({}) do |opt, (key, value)|
+          opt[(key.to_sym rescue key) || key] = value
+          opt
+        end
+      end
+    end
+  end
 end
 

@@ -36,7 +36,7 @@ class APN::Connection
 
   def self.send(token, options, sandbox = false, enterprise = false)
     msg = APN::Notification.new(token, options)
-    raise "Invalid notification options (did you provide :alert, :badge, or :sound?): #{options.inspect}" unless msg.valid?
+    raise "Invalid notification options (did you provide :alert, :badge, :sound, or :'content-available'?): #{options.inspect}" unless msg.valid?
 
     thread_id = Thread.current.object_id
 

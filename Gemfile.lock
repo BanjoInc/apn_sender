@@ -1,0 +1,16 @@
+PATH
+  remote: .
+  specs:
+    banjo-apn_sender (2.1.1)
+      multi_json
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    multi_json (1.10.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  banjo-apn_sender!
