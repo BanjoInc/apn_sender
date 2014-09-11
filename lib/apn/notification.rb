@@ -38,7 +38,7 @@ module APN
 
     # Ensures at least one of <code>%w(alert badge sound)</code> is present
     def valid?
-      return true if %w(alert badge sound).any?{|key| options.keys.include?(key.to_sym) }
+      return true if %w(alert badge sound content-available).any?{|key| options.keys.include?(key.to_sym) }
       false
     end
 
@@ -50,7 +50,7 @@ module APN
     end
 
     def self.packaged_message(options)
-      raise "Message #{options} is missing the alert or badge keys." unless options[:badge] || options[:alert]
+      raise "Message #{options} is missing the alert, badge, content-available keys." unless options[:badge] || options[:alert] || options[:'content-available']
 
       opts = options.clone # Don't destroy our pristine copy
       aps_hash = {}
