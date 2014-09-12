@@ -23,10 +23,15 @@ module APN
     # character overhead, so there are 199 characters available for the alert string.
     MAX_ALERT_LENGTH = 199
 
-    attr_accessor :options, :token
-    def initialize(token, opts)
-      @options = hash_as_symbols(opts.is_a?(Hash) ? opts : {:alert => opts})
+    attr_accessor :options, :token, :format, :identifier, :expiry_epoch, :priority
+
+    def initialize(token, opts, style = {})
       @token = token
+      @options = hash_as_symbols(opts.is_a?(Hash) ? opts : {:alert => opts})
+      @format = style[:format] || :frame
+      @identifier = style[:identifier] || OpenSSL::Random.random_bytes(4)
+      @expiry_epoch = (style[:expiry_epoch] || Time.now + 1.hour).to_i
+      @priority = (style[:priority] || 10).to_i
       payload_size = packaged_message.bytesize.to_i
 
       raise "Payload bytesize of #{payload_size} is > the maximum allowed size of 255." if payload_size > 255
@@ -71,7 +76,22 @@ module APN
     def packaged_notification
       pt = packaged_token
       pm = packaged_message
-      [0, 0, 32, pt, 0, pm.bytesize, pm].pack("ccca*cca*") 
+
+      case format
+      when :simple
+        [0, 0, pt.bytesize, pt, 0, pm.bytesize, pm].pack("ccca*cca*") 
+      when :frame
+        data = ''
+        data << [1, pt.bytesize, pt].pack("CnA*")
+        data << [2, pm.bytesize, pm].pack("CnA*")
+        data << [3, identifier.bytesize, identifier].pack("CnA*")
+        data << [4, 4, expiry_epoch].pack("CnN")
+        data << [5, 1, priority].pack("CnC")
+
+        [2, data.bytesize].pack('CN') + data
+      else
+        raise "Unsupported apn format #{format} with token: #{pt} message: #{options}"
+      end
     end
 
     # Device token, compressed and hex-ified
