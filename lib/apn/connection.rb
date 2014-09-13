@@ -66,6 +66,7 @@ class APN::Connection
   end
 
   def self.send_apn(token, message, sandbox = false, enterprise = false, style = { format: :frame })
+    style.symbolize_keys!
     msg = APN::Notification.new(token, message, style.reverse_merge(identifier: token.byteslice(0, 4)))
     raise "Invalid notification message (did you provide :alert, :badge, :sound, or :'content-available'?): #{message.inspect}" unless msg.valid?
 
@@ -73,11 +74,12 @@ class APN::Connection
     env = sandbox ? 'sandbox' : enterprise ? 'enterprise' : 'production'
     tag = "#{sandbox ? 'sandbox' : 'production'}#{enterprise ? ' enterprise' : ''}"
     sender.log(:info, "token: #{token} message: #{message}, style: #{style}")
+    debug = style[:debug] || (style[:debug_sample] && rand(style[:debug_sample].to_i) == 0)
 
     if enterprise
-      @enterprise_semaphore.synchronize { sender.send_to_apple(msg, token, env, tag, !!style[:debug]) }
+      @enterprise_semaphore.synchronize { sender.send_to_apple(msg, token, env, tag, debug) }
     else
-      sender.send_to_apple(msg, token, env, tag)
+      sender.send_to_apple(msg, token, env, tag, debug)
     end
 
     sender
