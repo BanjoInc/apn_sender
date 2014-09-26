@@ -98,6 +98,8 @@ module APN
         ctx.key = OpenSSL::PKey::RSA.new(@apn_cert)
 
         @socket_tcp = TCPSocket.new(apn_host, apn_port)
+        @socket_tcp.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
+
         @socket = OpenSSL::SSL::SSLSocket.new(@socket_tcp, ctx)
         @socket.sync = true
         @socket.connect
