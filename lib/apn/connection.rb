@@ -1,11 +1,14 @@
 class APN::Connection
   include APN::Base
   TIMES_TO_RETRY_SOCKET_ERROR = 2
+  IDLE_RECONNECTION_INTERVAL = 120
 
   @production_senders = Hash.new
   @sandbox_senders = Hash.new
   @enterprise_semaphore = Mutex.new
 
+  @production_last_accesses = Hash.new
+  @sandbox_last_accesses = Hash.new
 
   def push_fifo(env, token)
     @fifos[env] <<= token
@@ -35,9 +38,7 @@ class APN::Connection
 
       # Try reestablishing the connection
       if (retries += 1) <= TIMES_TO_RETRY_SOCKET_ERROR
-        teardown_connection
-        sleep 1
-        setup_connection
+        reconnect
         retry
       end
 
@@ -46,20 +47,38 @@ class APN::Connection
     end
   end
 
+  def reconnect
+    teardown_connection
+    sleep 1
+    setup_connection
+  end
+
   def self.current(sandbox = false, enterprise = false)
     thread_id = Thread.current.object_id
+    epoch = Time.now.to_i
 
     # Use only 1 single thread for internal enterprise cert
-    if enterprise
-      if sandbox
-        @sandbox_enterprise_sender ||= new(worker_count: 1, sandbox: 1, verbose: 1, enterprise: 1)
-      else
-        @production_enterprise_sender ||= new(worker_count: 1, verbose: 1, enterprise: 1)
-      end 
+    if enterprise && !sandbox
+      if @enterprise_sender && (epoch - @enterprise_last_access) > IDLE_RECONNECTION_INTERVAL
+        @enterprise_sender.reconnect
+      end
+
+      @enterprise_last_access = epoch
+      @enterprise_sender ||= new(worker_count: 1, verbose: 1, enterprise: 1)
     else
       if sandbox
+        if @sandbox_senders[thread_id] && (epoch - @sandbox_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
+          @sandbox_senders[thread_id].reconnect
+        end
+
+        @sandbox_last_accesses[thread_id] = epoch
         @sandbox_senders[thread_id] ||= new(worker_count: 1, sandbox: 1, verbose: 1)
       else
+        if @production_senders[thread_id] && (epoch - @production_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
+          @production_senders[thread_id].reconnect
+        end
+
+        @production_last_accesses[thread_id] = epoch
         @production_senders[thread_id] ||= new(worker_count: 1, verbose: 1)
       end
     end
