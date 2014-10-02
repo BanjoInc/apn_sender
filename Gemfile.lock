@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    banjo-apn_sender (2.1.1)
+    banjo-apn_sender (2.2.5)
       multi_json
 
 GEM
