@@ -5,10 +5,11 @@ class APN::Connection
 
   @production_senders = Hash.new
   @sandbox_senders = Hash.new
-  @enterprise_semaphore = Mutex.new
+  @enterprise_senders = Hash.new
 
   @production_last_accesses = Hash.new
   @sandbox_last_accesses = Hash.new
+  @enterprise_last_accesses = Hash.new
 
   def push_fifo(env, token)
     @fifos[env] <<= token
@@ -58,29 +59,27 @@ class APN::Connection
     epoch = Time.now.to_i
 
     # Use only 1 single thread for internal enterprise cert
-    if enterprise && !sandbox
-      if @enterprise_sender && (epoch - @enterprise_last_access) > IDLE_RECONNECTION_INTERVAL
-        @enterprise_sender.reconnect
+    if enterprise
+      if @enterprise_senders[thread_id] && (epoch - @enterprise_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
+        @enterprise_senders[thread_id].reconnect
       end
 
-      @enterprise_last_access = epoch
-      @enterprise_sender ||= new(worker_count: 1, verbose: 1, enterprise: 1)
+      @enterprise_last_accesses[thread_id] = epoch
+      @enterprise_senders[thread_id] ||= new(worker_count: 1, verbose: 1, enterprise: 1)
+    elsif sandbox
+      if @sandbox_senders[thread_id] && (epoch - @sandbox_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
+        @sandbox_senders[thread_id].reconnect
+      end
+
+      @sandbox_last_accesses[thread_id] = epoch
+      @sandbox_senders[thread_id] ||= new(worker_count: 1, sandbox: 1, verbose: 1)
     else
-      if sandbox
-        if @sandbox_senders[thread_id] && (epoch - @sandbox_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
-          @sandbox_senders[thread_id].reconnect
-        end
-
-        @sandbox_last_accesses[thread_id] = epoch
-        @sandbox_senders[thread_id] ||= new(worker_count: 1, sandbox: 1, verbose: 1)
-      else
-        if @production_senders[thread_id] && (epoch - @production_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
-          @production_senders[thread_id].reconnect
-        end
-
-        @production_last_accesses[thread_id] = epoch
-        @production_senders[thread_id] ||= new(worker_count: 1, verbose: 1)
+      if @production_senders[thread_id] && (epoch - @production_last_accesses[thread_id]) > IDLE_RECONNECTION_INTERVAL
+        @production_senders[thread_id].reconnect
       end
+
+      @production_last_accesses[thread_id] = epoch
+      @production_senders[thread_id] ||= new(worker_count: 1, verbose: 1)
     end
   end
 
@@ -94,13 +93,7 @@ class APN::Connection
     tag = "#{sandbox ? 'sandbox' : 'production'}#{enterprise ? ' enterprise' : ''}"
     sender.log(:info, "token: #{token} message: #{message}, style: #{style}")
     debug = style[:debug] || (style[:debug_sample] && rand(style[:debug_sample].to_i) == 0)
-
-    if enterprise
-      @enterprise_semaphore.synchronize { sender.send_to_apple(msg, token, env, tag, debug) }
-    else
-      sender.send_to_apple(msg, token, env, tag, debug)
-    end
-
+    sender.send_to_apple(msg, token, env, tag, debug)
     sender
   end
 
